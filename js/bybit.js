@@ -4,7 +4,7 @@
 
 const Exchange = require ('./base/Exchange');
 const { TICK_SIZE } = require ('./base/functions/number');
-const { AuthenticationError, ExchangeError, ArgumentsRequired, PermissionDenied, InvalidOrder, OrderNotFound, InsufficientFunds, BadRequest, RateLimitExceeded, InvalidNonce, NotSupported } = require ('./base/errors');
+const { AuthenticationError, ExchangeError, ArgumentsRequired, PermissionDenied, InvalidOrder, OrderNotFound, InsufficientFunds, BadRequest, RateLimitExceeded, InvalidNonce } = require ('./base/errors');
 
 //  ---------------------------------------------------------------------------
 
@@ -144,9 +144,11 @@ module.exports = class bybit extends Exchange {
                         'order/create',
                         'order/cancel',
                         'order/cancelAll',
+                        'order/replace',
                         'stop-order/create',
                         'stop-order/cancel',
                         'stop-order/cancelAll',
+                        'stop-order/replace',
                         'position/switch-isolated',
                         'position/set-auto-add-margin',
                         'position/set-leverage',
@@ -1291,6 +1293,11 @@ module.exports = class bybit extends Exchange {
                 throw new ArgumentsRequired (this.id + ' createOrder requires a price argument for a ' + type + ' order');
             }
         }
+        const clientOrderId = this.safeString2 (params, 'orderLinkId', 'clientOrderId');
+        if (clientOrderId !== undefined) {
+            request['order_link_id'] = clientOrderId;
+            params = this.omit (params, [ 'clientId', 'clientOrderId' ]);
+        }
         const stopPx = this.safeValue (params, 'stop_px');
         const basePrice = this.safeValue (params, 'base_price');
         const marketTypes = this.safeValue (this.options, 'marketTypes', {});
@@ -1396,9 +1403,6 @@ module.exports = class bybit extends Exchange {
         }
         const marketTypes = this.safeValue (this.options, 'marketTypes', {});
         const marketType = this.safeString (marketTypes, symbol);
-        if (marketType === 'linear') {
-            throw new NotSupported (this.id + ' does not support editOrder for ' + marketType + ' ' + symbol + ' market type');
-        }
         await this.loadMarkets ();
         const market = this.market (symbol);
         const request = {
@@ -1411,10 +1415,10 @@ module.exports = class bybit extends Exchange {
             // 'stop_order_id': id, // only for conditional orders
             // 'p_r_trigger_price': 123.45, // new trigger price also known as stop_px
         };
+        let method = (marketType === 'linear') ? 'privateLinearPostOrderReplace' : 'openapiPostOrderReplace';
         const stopOrderId = this.safeString (params, 'stop_order_id');
-        let method = 'openapiPostOrderReplace';
         if (stopOrderId !== undefined) {
-            method = 'openapiPostStopOrderReplace';
+            method = (marketType === 'linear') ? 'privateLinearPostStopOrderReplace' : 'openapiPostStopOrderReplace';
             request['stop_order_id'] = stopOrderId;
             params = this.omit (params, [ 'stop_order_id' ]);
         } else {
