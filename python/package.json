@@ -1,5 +1,5 @@
 {
-  "name": "ccxt",
+  "name": "elauria-ccxt",
   "version": "1.33.27",
   "description": "A JavaScript / Python / PHP cryptocurrency trading library with support for 130+ exchanges",
   "main": "./ccxt.js",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ccxt/ccxt.git"
+    "url": "https://github.com/elauria/ccxt.git"
   },
   "readme": "README.md",
   "scripts": {
