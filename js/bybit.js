@@ -1098,7 +1098,11 @@ module.exports = class bybit extends Exchange {
                 }
             }
         }
-        const status = this.parseOrderStatus (this.safeString (order, 'order_status'));
+        let status = this.parseOrderStatus (this.safeString (order, 'order_status'));
+        const stopOrderStatus = this.safeString (order, 'stop_order_status');
+        if (status === undefined && stopOrderStatus !== undefined) {
+            status = this.parseOrderStatus (stopOrderStatus);
+        }
         const side = this.safeStringLower (order, 'side');
         let feeCost = this.safeFloat (order, 'cum_exec_fee');
         let fee = undefined;
