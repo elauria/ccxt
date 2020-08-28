@@ -1072,7 +1072,10 @@ module.exports = class bybit extends Exchange {
         if (marketId in this.markets_by_id) {
             market = this.markets_by_id[marketId];
         }
-        const timestamp = this.parse8601 (this.safeString (order, 'created_at'));
+        let timestamp = this.parse8601 (this.safeString (order, 'created_at'));
+        if (timestamp === undefined) {
+            timestamp = this.parse8601 (this.safeString (order, 'timestamp'));
+        }
         const id = this.safeString2 (order, 'order_id', 'stop_order_id');
         let price = this.safeFloat2 (order, 'price', 'last_exec_price');
         if (price === undefined || price === 0) {
