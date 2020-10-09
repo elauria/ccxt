@@ -4,7 +4,7 @@
 
 # -----------------------------------------------------------------------------
 
-__version__ = '1.35.77'
+__version__ = '1.35.80'
 
 # -----------------------------------------------------------------------------
 
@@ -531,10 +531,13 @@ class Exchange(object):
         if self.proxy:
             headers.update({'Origin': self.origin})
         headers.update({'Accept-Encoding': 'gzip, deflate'})
-        return headers
+        return self.set_headers(headers)
 
     def print(self, *args):
         print(*args)
+
+    def set_headers(self, headers):
+        return headers
 
     def fetch(self, url, method='GET', headers=None, body=None):
         """Perform a HTTP request and return decoded JSON data"""
