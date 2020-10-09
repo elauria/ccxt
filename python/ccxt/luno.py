@@ -4,7 +4,6 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.base.exchange import Exchange
-import base64
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import ArgumentsRequired
 
@@ -193,11 +192,7 @@ class luno(Exchange):
         status = 'open' if (order['state'] == 'PENDING') else 'closed'
         side = 'sell' if (order['type'] == 'ASK') else 'buy'
         marketId = self.safe_string(order, 'pair')
-        symbol = None
-        if marketId in self.markets_by_id:
-            market = self.markets_by_id[marketId]
-        if market is not None:
-            symbol = market['symbol']
+        symbol = self.safe_symbol(marketId, market)
         price = self.safe_float(order, 'limit_price')
         amount = self.safe_float(order, 'limit_volume')
         quoteFee = self.safe_float(order, 'fee_counter')
@@ -571,9 +566,10 @@ class luno(Exchange):
             url += '?' + self.urlencode(query)
         if api == 'private':
             self.check_required_credentials()
-            auth = self.encode(self.apiKey + ':' + self.secret)
-            auth = base64.b64encode(auth)
-            headers = {'Authorization': 'Basic ' + self.decode(auth)}
+            auth = self.string_to_base64(self.apiKey + ':' + self.secret)
+            headers = {
+                'Authorization': 'Basic ' + self.decode(auth),
+            }
         return {'url': url, 'method': method, 'body': body, 'headers': headers}
 
     def request(self, path, api='public', method='GET', params={}, headers=None, body=None):

@@ -119,6 +119,7 @@ class yobit(Exchange):
                 'COV': 'Coven Coin',
                 'COVX': 'COV',
                 'CPC': 'Capricoin',
+                'CREDIT': 'Creditbit',
                 'CS': 'CryptoSpots',
                 'DCT': 'Discount',
                 'DFT': 'DraftCoin',
@@ -342,10 +343,7 @@ class yobit(Exchange):
         ids = list(response.keys())
         for i in range(0, len(ids)):
             id = ids[i]
-            symbol = id
-            if id in self.markets_by_id:
-                market = self.markets_by_id[id]
-                symbol = market['symbol']
+            symbol = self.safe_symbol(id)
             result[symbol] = self.parse_order_book(response[id])
         return result
 
@@ -411,11 +409,8 @@ class yobit(Exchange):
         for k in range(0, len(keys)):
             id = keys[k]
             ticker = tickers[id]
-            symbol = id
-            market = None
-            if id in self.markets_by_id:
-                market = self.markets_by_id[id]
-                symbol = market['symbol']
+            market = self.safe_market(id)
+            symbol = market['symbol']
             result[symbol] = self.parse_ticker(ticker, market)
         return self.filter_by_array(result, 'symbol', symbols)
 
@@ -433,15 +428,10 @@ class yobit(Exchange):
         price = self.safe_float_2(trade, 'rate', 'price')
         id = self.safe_string_2(trade, 'trade_id', 'tid')
         order = self.safe_string(trade, 'order_id')
-        if 'pair' in trade:
-            marketId = self.safe_string(trade, 'pair')
-            market = self.safe_value(self.markets_by_id, marketId, market)
-        symbol = None
-        if market is not None:
-            symbol = market['symbol']
+        marketId = self.safe_string(trade, 'pair')
+        symbol = self.safe_symbol(marketId, market)
         amount = self.safe_float(trade, 'amount')
         type = 'limit'  # all trades are still limit trades
-        takerOrMaker = None
         fee = None
         feeCost = self.safe_float(trade, 'commission')
         if feeCost is not None:
@@ -453,11 +443,8 @@ class yobit(Exchange):
             }
         isYourOrder = self.safe_value(trade, 'is_your_order')
         if isYourOrder is not None:
-            takerOrMaker = 'taker'
-            if isYourOrder:
-                takerOrMaker = 'maker'
             if fee is None:
-                fee = self.calculate_fee(symbol, type, side, amount, price, takerOrMaker)
+                fee = self.calculate_fee(symbol, type, side, amount, price, 'taker')
         cost = None
         if amount is not None:
             if price is not None:
@@ -470,7 +457,7 @@ class yobit(Exchange):
             'symbol': symbol,
             'type': type,
             'side': side,
-            'takerOrMaker': takerOrMaker,
+            'takerOrMaker': None,
             'price': price,
             'amount': amount,
             'cost': cost,
@@ -566,13 +553,8 @@ class yobit(Exchange):
         id = self.safe_string(order, 'id')
         status = self.parse_order_status(self.safe_string(order, 'status'))
         timestamp = self.safe_timestamp(order, 'timestamp_created')
-        symbol = None
-        if market is None:
-            marketId = self.safe_string(order, 'pair')
-            if marketId in self.markets_by_id:
-                market = self.markets_by_id[marketId]
-        if market is not None:
-            symbol = market['symbol']
+        marketId = self.safe_string(order, 'pair')
+        symbol = self.safe_symbol(marketId, market)
         remaining = self.safe_float(order, 'amount')
         amount = None
         price = self.safe_float(order, 'rate')

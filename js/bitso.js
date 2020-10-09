@@ -226,16 +226,8 @@ module.exports = class bitso extends Exchange {
 
     parseTrade (trade, market = undefined) {
         const timestamp = this.parse8601 (this.safeString (trade, 'created_at'));
-        let symbol = undefined;
-        if (market === undefined) {
-            const marketId = this.safeString (trade, 'book');
-            if (marketId in this.markets_by_id) {
-                market = this.markets_by_id[marketId];
-            }
-        }
-        if (market !== undefined) {
-            symbol = market['symbol'];
-        }
+        const marketId = this.safeString (trade, 'book');
+        const symbol = this.safeSymbol (marketId, market, '_');
         const side = this.safeString2 (trade, 'side', 'maker_side');
         let amount = this.safeFloat2 (trade, 'amount', 'major');
         if (amount !== undefined) {
@@ -352,23 +344,8 @@ module.exports = class bitso extends Exchange {
         const id = this.safeString (order, 'oid');
         const side = this.safeString (order, 'side');
         const status = this.parseOrderStatus (this.safeString (order, 'status'));
-        let symbol = undefined;
         const marketId = this.safeString (order, 'book');
-        if (marketId !== undefined) {
-            if (marketId in this.markets_by_id) {
-                market = this.markets_by_id[marketId];
-            } else {
-                const [ baseId, quoteId ] = marketId.split ('_');
-                const base = this.safeCurrencyCode (baseId);
-                const quote = this.safeCurrencyCode (quoteId);
-                symbol = base + '/' + quote;
-            }
-        }
-        if (symbol === undefined) {
-            if (market !== undefined) {
-                symbol = market['symbol'];
-            }
-        }
+        const symbol = this.safeSymbol (marketId, market, '_');
         const orderType = this.safeString (order, 'type');
         const timestamp = this.parse8601 (this.safeString (order, 'created_at'));
         const price = this.safeFloat (order, 'price');
@@ -466,10 +443,10 @@ module.exports = class bitso extends Exchange {
         const response = await this.privateGetFundingDestination (this.extend (request, params));
         let address = this.safeString (response['payload'], 'account_identifier');
         let tag = undefined;
-        if (code === 'XRP') {
+        if (address.indexOf ('?dt=') >= 0) {
             const parts = address.split ('?dt=');
-            address = parts[0];
-            tag = parts[1];
+            address = this.safeString (parts, 0);
+            tag = this.safeString (parts, 1);
         }
         this.checkAddress (address);
         return {

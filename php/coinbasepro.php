@@ -195,6 +195,7 @@ class coinbasepro extends Exchange {
                     'price too precise' => '\\ccxt\\InvalidOrder',
                     'under maintenance' => '\\ccxt\\OnMaintenance',
                     'size is too small' => '\\ccxt\\InvalidOrder',
+                    'Cancel only mode' => '\\ccxt\\OnMaintenance', // https://github.com/ccxt/ccxt/issues/7690
                 ),
             ),
         ));
@@ -434,21 +435,8 @@ class coinbasepro extends Exchange {
         //     }
         //
         $timestamp = $this->parse8601($this->safe_string_2($trade, 'time', 'created_at'));
-        $symbol = null;
         $marketId = $this->safe_string($trade, 'product_id');
-        if ($marketId !== null) {
-            if (is_array($this->markets_by_id) && array_key_exists($marketId, $this->markets_by_id)) {
-                $market = $this->markets_by_id[$marketId];
-            } else {
-                list($baseId, $quoteId) = explode('-', $marketId);
-                $base = $this->safe_currency_code($baseId);
-                $quote = $this->safe_currency_code($quoteId);
-                $symbol = $base . '/' . $quote;
-            }
-        }
-        if (($symbol === null) && ($market !== null)) {
-            $symbol = $market['symbol'];
-        }
+        $symbol = $this->safe_symbol($marketId, $market, '-');
         $feeRate = null;
         $feeCurrency = null;
         $takerOrMaker = null;
@@ -592,19 +580,8 @@ class coinbasepro extends Exchange {
 
     public function parse_order($order, $market = null) {
         $timestamp = $this->parse8601($this->safe_string($order, 'created_at'));
-        $symbol = null;
         $marketId = $this->safe_string($order, 'product_id');
-        $quote = null;
-        if ($marketId !== null) {
-            if (is_array($this->markets_by_id) && array_key_exists($marketId, $this->markets_by_id)) {
-                $market = $this->markets_by_id[$marketId];
-            } else {
-                list($baseId, $quoteId) = explode('-', $marketId);
-                $base = $this->safe_currency_code($baseId);
-                $quote = $this->safe_currency_code($quoteId);
-                $symbol = $base . '/' . $quote;
-            }
-        }
+        $market = $this->safe_market($marketId, $market, '-');
         $status = $this->parse_order_status($this->safe_string($order, 'status'));
         $price = $this->safe_float($order, 'price');
         $filled = $this->safe_float($order, 'filled_size');
@@ -622,17 +599,12 @@ class coinbasepro extends Exchange {
             $feeCurrencyCode = null;
             if ($market !== null) {
                 $feeCurrencyCode = $market['quote'];
-            } else if ($quote !== null) {
-                $feeCurrencyCode = $quote;
             }
             $fee = array(
                 'cost' => $feeCost,
                 'currency' => $feeCurrencyCode,
                 'rate' => null,
             );
-        }
-        if (($symbol === null) && ($market !== null)) {
-            $symbol = $market['symbol'];
         }
         $id = $this->safe_string($order, 'id');
         $type = $this->safe_string($order, 'type');
@@ -645,7 +617,7 @@ class coinbasepro extends Exchange {
             'datetime' => $this->iso8601($timestamp),
             'lastTradeTimestamp' => null,
             'status' => $status,
-            'symbol' => $symbol,
+            'symbol' => $market['symbol'],
             'type' => $type,
             'side' => $side,
             'price' => $price,
@@ -926,7 +898,7 @@ class coinbasepro extends Exchange {
             $signature = $this->hmac($this->encode($what), $secret, 'sha256', 'base64');
             $headers = array(
                 'CB-ACCESS-KEY' => $this->apiKey,
-                'CB-ACCESS-SIGN' => $this->decode($signature),
+                'CB-ACCESS-SIGN' => $signature,
                 'CB-ACCESS-TIMESTAMP' => $nonce,
                 'CB-ACCESS-PASSPHRASE' => $this->password,
                 'Content-Type' => 'application/json',

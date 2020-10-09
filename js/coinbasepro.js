@@ -190,6 +190,7 @@ module.exports = class coinbasepro extends Exchange {
                     'price too precise': InvalidOrder,
                     'under maintenance': OnMaintenance,
                     'size is too small': InvalidOrder,
+                    'Cancel only mode': OnMaintenance, // https://github.com/ccxt/ccxt/issues/7690
                 },
             },
         });
@@ -429,21 +430,8 @@ module.exports = class coinbasepro extends Exchange {
         //     }
         //
         const timestamp = this.parse8601 (this.safeString2 (trade, 'time', 'created_at'));
-        let symbol = undefined;
         const marketId = this.safeString (trade, 'product_id');
-        if (marketId !== undefined) {
-            if (marketId in this.markets_by_id) {
-                market = this.markets_by_id[marketId];
-            } else {
-                const [ baseId, quoteId ] = marketId.split ('-');
-                const base = this.safeCurrencyCode (baseId);
-                const quote = this.safeCurrencyCode (quoteId);
-                symbol = base + '/' + quote;
-            }
-        }
-        if ((symbol === undefined) && (market !== undefined)) {
-            symbol = market['symbol'];
-        }
+        const symbol = this.safeSymbol (marketId, market, '-');
         let feeRate = undefined;
         let feeCurrency = undefined;
         let takerOrMaker = undefined;
@@ -587,19 +575,8 @@ module.exports = class coinbasepro extends Exchange {
 
     parseOrder (order, market = undefined) {
         const timestamp = this.parse8601 (this.safeString (order, 'created_at'));
-        let symbol = undefined;
         const marketId = this.safeString (order, 'product_id');
-        let quote = undefined;
-        if (marketId !== undefined) {
-            if (marketId in this.markets_by_id) {
-                market = this.markets_by_id[marketId];
-            } else {
-                const [ baseId, quoteId ] = marketId.split ('-');
-                const base = this.safeCurrencyCode (baseId);
-                quote = this.safeCurrencyCode (quoteId);
-                symbol = base + '/' + quote;
-            }
-        }
+        market = this.safeMarket (marketId, market, '-');
         const status = this.parseOrderStatus (this.safeString (order, 'status'));
         const price = this.safeFloat (order, 'price');
         const filled = this.safeFloat (order, 'filled_size');
@@ -617,17 +594,12 @@ module.exports = class coinbasepro extends Exchange {
             let feeCurrencyCode = undefined;
             if (market !== undefined) {
                 feeCurrencyCode = market['quote'];
-            } else if (quote !== undefined) {
-                feeCurrencyCode = quote;
             }
             fee = {
                 'cost': feeCost,
                 'currency': feeCurrencyCode,
                 'rate': undefined,
             };
-        }
-        if ((symbol === undefined) && (market !== undefined)) {
-            symbol = market['symbol'];
         }
         const id = this.safeString (order, 'id');
         const type = this.safeString (order, 'type');
@@ -640,7 +612,7 @@ module.exports = class coinbasepro extends Exchange {
             'datetime': this.iso8601 (timestamp),
             'lastTradeTimestamp': undefined,
             'status': status,
-            'symbol': symbol,
+            'symbol': market['symbol'],
             'type': type,
             'side': side,
             'price': price,
@@ -921,7 +893,7 @@ module.exports = class coinbasepro extends Exchange {
             const signature = this.hmac (this.encode (what), secret, 'sha256', 'base64');
             headers = {
                 'CB-ACCESS-KEY': this.apiKey,
-                'CB-ACCESS-SIGN': this.decode (signature),
+                'CB-ACCESS-SIGN': signature,
                 'CB-ACCESS-TIMESTAMP': nonce,
                 'CB-ACCESS-PASSPHRASE': this.password,
                 'Content-Type': 'application/json',

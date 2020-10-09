@@ -263,6 +263,7 @@ module.exports = class bybit extends Exchange {
                 },
                 'broad': {
                     'unknown orderInfo': OrderNotFound, // {"ret_code":-1,"ret_msg":"unknown orderInfo","ext_code":"","ext_info":"","result":null,"time_now":"1584030414.005545","rate_limit_status":99,"rate_limit_reset_ms":1584030414003,"rate_limit":100}
+                    'invalid api_key': AuthenticationError, // {"ret_code":10003,"ret_msg":"invalid api_key","ext_code":"","ext_info":"","result":null,"time_now":"1599547085.415797"}
                 },
             },
             'precisionMode': TICK_SIZE,
@@ -414,7 +415,9 @@ module.exports = class bybit extends Exchange {
         await this.loadMarkets ();
         const defaultCode = this.safeValue (this.options, 'code', 'BTC');
         const options = this.safeValue (this.options, 'fetchBalance', {});
-        const code = this.safeValue (options, 'code', defaultCode);
+        let code = this.safeValue (options, 'code', defaultCode);
+        code = this.safeString (params, 'code', code);
+        params = this.omit (params, 'code');
         const currency = this.currency (code);
         const request = {
             'coin': currency['id'],

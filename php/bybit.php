@@ -265,6 +265,7 @@ class bybit extends Exchange {
                 ),
                 'broad' => array(
                     'unknown orderInfo' => '\\ccxt\\OrderNotFound', // array("ret_code":-1,"ret_msg":"unknown orderInfo","ext_code":"","ext_info":"","result":null,"time_now":"1584030414.005545","rate_limit_status":99,"rate_limit_reset_ms":1584030414003,"rate_limit":100)
+                    'invalid api_key' => '\\ccxt\\AuthenticationError', // array("ret_code":10003,"ret_msg":"invalid api_key","ext_code":"","ext_info":"","result":null,"time_now":"1599547085.415797")
                 ),
             ),
             'precisionMode' => TICK_SIZE,
@@ -417,6 +418,8 @@ class bybit extends Exchange {
         $defaultCode = $this->safe_value($this->options, 'code', 'BTC');
         $options = $this->safe_value($this->options, 'fetchBalance', array());
         $code = $this->safe_value($options, 'code', $defaultCode);
+        $code = $this->safe_string($params, 'code', $code);
+        $params = $this->omit($params, 'code');
         $currency = $this->currency($code);
         $request = array(
             'coin' => $currency['id'],
@@ -1100,7 +1103,7 @@ class bybit extends Exchange {
                 }
             }
         }
-        $status = $this->parse_order_status($this->safe_string($order, 'order_status'));
+        $status = $this->parse_order_status($this->safe_string_2($order, 'order_status', 'stop_order_status'));
         $side = $this->safe_string_lower($order, 'side');
         $feeCost = $this->safe_float($order, 'cum_exec_fee');
         $fee = null;

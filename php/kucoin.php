@@ -182,7 +182,7 @@ class kucoin extends Exchange {
                     '404' => '\\ccxt\\NotSupported',
                     '405' => '\\ccxt\\NotSupported',
                     '429' => '\\ccxt\\RateLimitExceeded',
-                    '500' => '\\ccxt\\ExchangeError',
+                    '500' => '\\ccxt\\ExchangeNotAvailable', // Internal Server Error -- We had a problem with our server. Try again later.
                     '503' => '\\ccxt\\ExchangeNotAvailable',
                     '200004' => '\\ccxt\\InsufficientFunds',
                     '230003' => '\\ccxt\\InsufficientFunds', // array("code":"230003","msg":"Balance insufficient!")
@@ -388,13 +388,16 @@ class kucoin extends Exchange {
             $name = $this->safe_string($entry, 'fullName');
             $code = $this->safe_currency_code($id);
             $precision = $this->safe_integer($entry, 'precision');
+            $isWithdrawEnabled = $this->safe_value($entry, 'isWithdrawEnabled', false);
+            $isDepositEnabled = $this->safe_value($entry, 'isDepositEnabled', false);
+            $active = ($isWithdrawEnabled && $isDepositEnabled);
             $result[$code] = array(
                 'id' => $id,
                 'name' => $name,
                 'code' => $code,
                 'precision' => $precision,
                 'info' => $entry,
-                'active' => null,
+                'active' => $active,
                 'fee' => null,
                 'limits' => $this->limits,
             );
@@ -1815,14 +1818,14 @@ class kucoin extends Exchange {
             ), $headers);
             $payload = $timestamp . $method . $endpoint . $endpart;
             $signature = $this->hmac($this->encode($payload), $this->encode($this->secret), 'sha256', 'base64');
-            $headers['KC-API-SIGN'] = $this->decode($signature);
+            $headers['KC-API-SIGN'] = $signature;
             $partner = $this->safe_value($this->options, 'partner', array());
             $partnerId = $this->safe_string($partner, 'id');
             $partnerSecret = $this->safe_string($partner, 'secret');
             if (($partnerId !== null) && ($partnerSecret !== null)) {
                 $partnerPayload = $timestamp . $partnerId . $this->apiKey;
                 $partnerSignature = $this->hmac($this->encode($partnerPayload), $this->encode($partnerSecret), 'sha256', 'base64');
-                $headers['KC-API-PARTNER-SIGN'] = $this->decode($partnerSignature);
+                $headers['KC-API-PARTNER-SIGN'] = $partnerSignature;
                 $headers['KC-API-PARTNER'] = $partnerId;
             }
         }

@@ -4,7 +4,6 @@
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.async_support.base.exchange import Exchange
-import base64
 import math
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import AuthenticationError
@@ -264,17 +263,19 @@ class hitbtc(Exchange):
         #
         #     [
         #         {
-        #             "id":"DDF",
-        #             "fullName":"DDF",
+        #             "id":"XPNT",
+        #             "fullName":"pToken",
         #             "crypto":true,
-        #             "payinEnabled":false,
+        #             "payinEnabled":true,
         #             "payinPaymentId":false,
-        #             "payinConfirmations":20,
+        #             "payinConfirmations":9,
         #             "payoutEnabled":true,
         #             "payoutIsPaymentId":false,
         #             "transferEnabled":true,
         #             "delisted":false,
-        #             "payoutFee":"646.000000000000"
+        #             "payoutFee":"26.510000000000",
+        #             "precisionPayout":18,
+        #             "precisionTransfer":8
         #         }
         #     ]
         #
@@ -285,7 +286,8 @@ class hitbtc(Exchange):
             # todo: will need to rethink the fees
             # to add support for multiple withdrawal/deposit methods and
             # differentiated fees for each particular method
-            precision = 8  # default precision, todo: fix "magic constants"
+            decimals = self.safe_integer(currency, 'precisionTransfer', 8)
+            precision = 1 / math.pow(10, decimals)
             code = self.safe_currency_code(id)
             payin = self.safe_value(currency, 'payinEnabled')
             payout = self.safe_value(currency, 'payoutEnabled')
@@ -312,12 +314,12 @@ class hitbtc(Exchange):
                 'precision': precision,
                 'limits': {
                     'amount': {
-                        'min': math.pow(10, -precision),
-                        'max': math.pow(10, precision),
+                        'min': 1 / math.pow(10, decimals),
+                        'max': math.pow(10, decimals),
                     },
                     'price': {
-                        'min': math.pow(10, -precision),
-                        'max': math.pow(10, precision),
+                        'min': 1 / math.pow(10, decimals),
+                        'max': math.pow(10, decimals),
                     },
                     'cost': {
                         'min': None,
@@ -704,8 +706,6 @@ class hitbtc(Exchange):
         order = self.parse_order(response)
         if order['status'] == 'rejected':
             raise InvalidOrder(self.id + ' order was rejected by the exchange ' + self.json(order))
-        id = order['id']
-        self.orders[id] = order
         return order
 
     async def edit_order(self, id, symbol, type, side, amount=None, price=None, params={}):
@@ -727,9 +727,7 @@ class hitbtc(Exchange):
         if price is not None:
             request['price'] = self.price_to_precision(symbol, price)
         response = await self.privatePatchOrderClientOrderId(self.extend(request, params))
-        order = self.parse_order(response)
-        self.orders[order['id']] = order
-        return order
+        return self.parse_order(response)
 
     async def cancel_order(self, id, symbol=None, params={}):
         await self.load_markets()
@@ -796,9 +794,6 @@ class hitbtc(Exchange):
         id = self.safe_string(order, 'clientOrderId')
         clientOrderId = id
         price = self.safe_float(order, 'price')
-        if price is None:
-            if id in self.orders:
-                price = self.orders[id]['price']
         remaining = None
         cost = None
         if amount is not None:
@@ -1047,7 +1042,7 @@ class hitbtc(Exchange):
             elif query:
                 body = self.json(query)
             payload = self.encode(self.apiKey + ':' + self.secret)
-            auth = base64.b64encode(payload)
+            auth = self.string_to_base64(payload)
             headers = {
                 'Authorization': 'Basic ' + self.decode(auth),
                 'Content-Type': 'application/json',

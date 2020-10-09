@@ -170,6 +170,7 @@ class bitmex extends Exchange {
                     'overloaded' => '\\ccxt\\ExchangeNotAvailable',
                     'Account has insufficient Available Balance' => '\\ccxt\\InsufficientFunds',
                     'Service unavailable' => '\\ccxt\\ExchangeNotAvailable', // array("error":array("message":"Service unavailable","name":"HTTPError"))
+                    'Server Error' => '\\ccxt\\ExchangeError', // array("error":array("message":"Server Error","name":"HTTPError"))
                 ),
             ),
             'precisionMode' => TICK_SIZE,
@@ -1173,16 +1174,8 @@ class bitmex extends Exchange {
         if ($fee !== null) {
             $takerOrMaker = ($fee['cost'] < 0) ? 'maker' : 'taker';
         }
-        $symbol = null;
         $marketId = $this->safe_string($trade, 'symbol');
-        if ($marketId !== null) {
-            if (is_array($this->markets_by_id) && array_key_exists($marketId, $this->markets_by_id)) {
-                $market = $this->markets_by_id[$marketId];
-                $symbol = $market['symbol'];
-            } else {
-                $symbol = $marketId;
-            }
-        }
+        $symbol = $this->safe_symbol($marketId, $market);
         $type = $this->safe_string_lower($trade, 'ordType');
         return array(
             'info' => $trade,
@@ -1221,16 +1214,8 @@ class bitmex extends Exchange {
 
     public function parse_order($order, $market = null) {
         $status = $this->parse_order_status($this->safe_string($order, 'ordStatus'));
-        $symbol = null;
-        if ($market !== null) {
-            $symbol = $market['symbol'];
-        } else {
-            $marketId = $this->safe_string($order, 'symbol');
-            if (is_array($this->markets_by_id) && array_key_exists($marketId, $this->markets_by_id)) {
-                $market = $this->markets_by_id[$marketId];
-                $symbol = $market['symbol'];
-            }
-        }
+        $marketId = $this->safe_string($order, 'symbol');
+        $symbol = $this->safe_symbol($marketId, $market);
         $timestamp = $this->parse8601($this->safe_string($order, 'timestamp'));
         $lastTradeTimestamp = $this->parse8601($this->safe_string($order, 'transactTime'));
         $price = $this->safe_float($order, 'price');
@@ -1327,14 +1312,19 @@ class bitmex extends Exchange {
     public function create_order($symbol, $type, $side, $amount, $price = null, $params = array ()) {
         $this->load_markets();
         $market = $this->market($symbol);
+        $orderType = $this->capitalize($type);
         $request = array(
             'symbol' => $market['id'],
             'side' => $this->capitalize($side),
             'orderQty' => $amount,
-            'ordType' => $this->capitalize($type),
+            'ordType' => $orderType,
         );
         if ($price !== null) {
-            $request['price'] = $price;
+            if ($orderType === 'Stop') {
+                $request['stopPx'] = $price;
+            } else {
+                $request['price'] = $price;
+            }
         }
         $clientOrderId = $this->safe_string_2($params, 'clOrdID', 'clientOrderId');
         if ($clientOrderId !== null) {

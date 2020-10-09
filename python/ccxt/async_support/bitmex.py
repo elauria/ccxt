@@ -175,6 +175,7 @@ class bitmex(Exchange):
                     'overloaded': ExchangeNotAvailable,
                     'Account has insufficient Available Balance': InsufficientFunds,
                     'Service unavailable': ExchangeNotAvailable,  # {"error":{"message":"Service unavailable","name":"HTTPError"}}
+                    'Server Error': ExchangeError,  # {"error":{"message":"Server Error","name":"HTTPError"}}
                 },
             },
             'precisionMode': TICK_SIZE,
@@ -1109,14 +1110,8 @@ class bitmex(Exchange):
         takerOrMaker = None
         if fee is not None:
             takerOrMaker = 'maker' if (fee['cost'] < 0) else 'taker'
-        symbol = None
         marketId = self.safe_string(trade, 'symbol')
-        if marketId is not None:
-            if marketId in self.markets_by_id:
-                market = self.markets_by_id[marketId]
-                symbol = market['symbol']
-            else:
-                symbol = marketId
+        symbol = self.safe_symbol(marketId, market)
         type = self.safe_string_lower(trade, 'ordType')
         return {
             'info': trade,
@@ -1153,14 +1148,8 @@ class bitmex(Exchange):
 
     def parse_order(self, order, market=None):
         status = self.parse_order_status(self.safe_string(order, 'ordStatus'))
-        symbol = None
-        if market is not None:
-            symbol = market['symbol']
-        else:
-            marketId = self.safe_string(order, 'symbol')
-            if marketId in self.markets_by_id:
-                market = self.markets_by_id[marketId]
-                symbol = market['symbol']
+        marketId = self.safe_string(order, 'symbol')
+        symbol = self.safe_symbol(marketId, market)
         timestamp = self.parse8601(self.safe_string(order, 'timestamp'))
         lastTradeTimestamp = self.parse8601(self.safe_string(order, 'transactTime'))
         price = self.safe_float(order, 'price')
@@ -1249,14 +1238,18 @@ class bitmex(Exchange):
     async def create_order(self, symbol, type, side, amount, price=None, params={}):
         await self.load_markets()
         market = self.market(symbol)
+        orderType = self.capitalize(type)
         request = {
             'symbol': market['id'],
             'side': self.capitalize(side),
             'orderQty': amount,
-            'ordType': self.capitalize(type),
+            'ordType': orderType,
         }
         if price is not None:
-            request['price'] = price
+            if orderType == 'Stop':
+                request['stopPx'] = price
+            else:
+                request['price'] = price
         clientOrderId = self.safe_string_2(params, 'clOrdID', 'clientOrderId')
         if clientOrderId is not None:
             request['clOrdID'] = clientOrderId

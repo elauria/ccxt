@@ -101,6 +101,7 @@ module.exports = class yobit extends Exchange {
                 'COV': 'Coven Coin',
                 'COVX': 'COV',
                 'CPC': 'Capricoin',
+                'CREDIT': 'Creditbit',
                 'CS': 'CryptoSpots',
                 'DCT': 'Discount',
                 'DFT': 'DraftCoin',
@@ -335,11 +336,7 @@ module.exports = class yobit extends Exchange {
         ids = Object.keys (response);
         for (let i = 0; i < ids.length; i++) {
             const id = ids[i];
-            let symbol = id;
-            if (id in this.markets_by_id) {
-                const market = this.markets_by_id[id];
-                symbol = market['symbol'];
-            }
+            const symbol = this.safeSymbol (id);
             result[symbol] = this.parseOrderBook (response[id]);
         }
         return result;
@@ -411,12 +408,8 @@ module.exports = class yobit extends Exchange {
         for (let k = 0; k < keys.length; k++) {
             const id = keys[k];
             const ticker = tickers[id];
-            let symbol = id;
-            let market = undefined;
-            if (id in this.markets_by_id) {
-                market = this.markets_by_id[id];
-                symbol = market['symbol'];
-            }
+            const market = this.safeMarket (id);
+            const symbol = market['symbol'];
             result[symbol] = this.parseTicker (ticker, market);
         }
         return this.filterByArray (result, 'symbol', symbols);
@@ -438,17 +431,10 @@ module.exports = class yobit extends Exchange {
         const price = this.safeFloat2 (trade, 'rate', 'price');
         const id = this.safeString2 (trade, 'trade_id', 'tid');
         const order = this.safeString (trade, 'order_id');
-        if ('pair' in trade) {
-            const marketId = this.safeString (trade, 'pair');
-            market = this.safeValue (this.markets_by_id, marketId, market);
-        }
-        let symbol = undefined;
-        if (market !== undefined) {
-            symbol = market['symbol'];
-        }
+        const marketId = this.safeString (trade, 'pair');
+        const symbol = this.safeSymbol (marketId, market);
         const amount = this.safeFloat (trade, 'amount');
         const type = 'limit'; // all trades are still limit trades
-        let takerOrMaker = undefined;
         let fee = undefined;
         const feeCost = this.safeFloat (trade, 'commission');
         if (feeCost !== undefined) {
@@ -461,12 +447,8 @@ module.exports = class yobit extends Exchange {
         }
         const isYourOrder = this.safeValue (trade, 'is_your_order');
         if (isYourOrder !== undefined) {
-            takerOrMaker = 'taker';
-            if (isYourOrder) {
-                takerOrMaker = 'maker';
-            }
             if (fee === undefined) {
-                fee = this.calculateFee (symbol, type, side, amount, price, takerOrMaker);
+                fee = this.calculateFee (symbol, type, side, amount, price, 'taker');
             }
         }
         let cost = undefined;
@@ -483,7 +465,7 @@ module.exports = class yobit extends Exchange {
             'symbol': symbol,
             'type': type,
             'side': side,
-            'takerOrMaker': takerOrMaker,
+            'takerOrMaker': undefined,
             'price': price,
             'amount': amount,
             'cost': cost,
@@ -591,16 +573,8 @@ module.exports = class yobit extends Exchange {
         const id = this.safeString (order, 'id');
         const status = this.parseOrderStatus (this.safeString (order, 'status'));
         const timestamp = this.safeTimestamp (order, 'timestamp_created');
-        let symbol = undefined;
-        if (market === undefined) {
-            const marketId = this.safeString (order, 'pair');
-            if (marketId in this.markets_by_id) {
-                market = this.markets_by_id[marketId];
-            }
-        }
-        if (market !== undefined) {
-            symbol = market['symbol'];
-        }
+        const marketId = this.safeString (order, 'pair');
+        const symbol = this.safeSymbol (marketId, market);
         const remaining = this.safeFloat (order, 'amount');
         let amount = undefined;
         const price = this.safeFloat (order, 'rate');

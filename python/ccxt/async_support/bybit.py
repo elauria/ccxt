@@ -273,6 +273,7 @@ class bybit(Exchange):
                 },
                 'broad': {
                     'unknown orderInfo': OrderNotFound,  # {"ret_code":-1,"ret_msg":"unknown orderInfo","ext_code":"","ext_info":"","result":null,"time_now":"1584030414.005545","rate_limit_status":99,"rate_limit_reset_ms":1584030414003,"rate_limit":100}
+                    'invalid api_key': AuthenticationError,  # {"ret_code":10003,"ret_msg":"invalid api_key","ext_code":"","ext_info":"","result":null,"time_now":"1599547085.415797"}
                 },
             },
             'precisionMode': TICK_SIZE,
@@ -417,6 +418,8 @@ class bybit(Exchange):
         defaultCode = self.safe_value(self.options, 'code', 'BTC')
         options = self.safe_value(self.options, 'fetchBalance', {})
         code = self.safe_value(options, 'code', defaultCode)
+        code = self.safe_string(params, 'code', code)
+        params = self.omit(params, 'code')
         currency = self.currency(code)
         request = {
             'coin': currency['id'],
@@ -1061,7 +1064,7 @@ class bybit(Exchange):
             if cost is None:
                 if price is not None:
                     cost = price * filled
-        status = self.parse_order_status(self.safe_string(order, 'order_status'))
+        status = self.parse_order_status(self.safe_string_2(order, 'order_status', 'stop_order_status'))
         side = self.safe_string_lower(order, 'side')
         feeCost = self.safe_float(order, 'cum_exec_fee')
         fee = None

@@ -178,7 +178,7 @@ module.exports = class kucoin extends Exchange {
                     '404': NotSupported,
                     '405': NotSupported,
                     '429': RateLimitExceeded,
-                    '500': ExchangeError,
+                    '500': ExchangeNotAvailable, // Internal Server Error -- We had a problem with our server. Try again later.
                     '503': ExchangeNotAvailable,
                     '200004': InsufficientFunds,
                     '230003': InsufficientFunds, // {"code":"230003","msg":"Balance insufficient!"}
@@ -384,13 +384,16 @@ module.exports = class kucoin extends Exchange {
             const name = this.safeString (entry, 'fullName');
             const code = this.safeCurrencyCode (id);
             const precision = this.safeInteger (entry, 'precision');
+            const isWithdrawEnabled = this.safeValue (entry, 'isWithdrawEnabled', false);
+            const isDepositEnabled = this.safeValue (entry, 'isDepositEnabled', false);
+            const active = (isWithdrawEnabled && isDepositEnabled);
             result[code] = {
                 'id': id,
                 'name': name,
                 'code': code,
                 'precision': precision,
                 'info': entry,
-                'active': undefined,
+                'active': active,
                 'fee': undefined,
                 'limits': this.limits,
             };
@@ -1811,14 +1814,14 @@ module.exports = class kucoin extends Exchange {
             }, headers);
             const payload = timestamp + method + endpoint + endpart;
             const signature = this.hmac (this.encode (payload), this.encode (this.secret), 'sha256', 'base64');
-            headers['KC-API-SIGN'] = this.decode (signature);
+            headers['KC-API-SIGN'] = signature;
             const partner = this.safeValue (this.options, 'partner', {});
             const partnerId = this.safeString (partner, 'id');
             const partnerSecret = this.safeString (partner, 'secret');
             if ((partnerId !== undefined) && (partnerSecret !== undefined)) {
                 const partnerPayload = timestamp + partnerId + this.apiKey;
                 const partnerSignature = this.hmac (this.encode (partnerPayload), this.encode (partnerSecret), 'sha256', 'base64');
-                headers['KC-API-PARTNER-SIGN'] = this.decode (partnerSignature);
+                headers['KC-API-PARTNER-SIGN'] = partnerSignature;
                 headers['KC-API-PARTNER'] = partnerId;
             }
         }

@@ -229,16 +229,8 @@ class bitso extends Exchange {
 
     public function parse_trade($trade, $market = null) {
         $timestamp = $this->parse8601($this->safe_string($trade, 'created_at'));
-        $symbol = null;
-        if ($market === null) {
-            $marketId = $this->safe_string($trade, 'book');
-            if (is_array($this->markets_by_id) && array_key_exists($marketId, $this->markets_by_id)) {
-                $market = $this->markets_by_id[$marketId];
-            }
-        }
-        if ($market !== null) {
-            $symbol = $market['symbol'];
-        }
+        $marketId = $this->safe_string($trade, 'book');
+        $symbol = $this->safe_symbol($marketId, $market, '_');
         $side = $this->safe_string_2($trade, 'side', 'maker_side');
         $amount = $this->safe_float_2($trade, 'amount', 'major');
         if ($amount !== null) {
@@ -355,23 +347,8 @@ class bitso extends Exchange {
         $id = $this->safe_string($order, 'oid');
         $side = $this->safe_string($order, 'side');
         $status = $this->parse_order_status($this->safe_string($order, 'status'));
-        $symbol = null;
         $marketId = $this->safe_string($order, 'book');
-        if ($marketId !== null) {
-            if (is_array($this->markets_by_id) && array_key_exists($marketId, $this->markets_by_id)) {
-                $market = $this->markets_by_id[$marketId];
-            } else {
-                list($baseId, $quoteId) = explode('_', $marketId);
-                $base = $this->safe_currency_code($baseId);
-                $quote = $this->safe_currency_code($quoteId);
-                $symbol = $base . '/' . $quote;
-            }
-        }
-        if ($symbol === null) {
-            if ($market !== null) {
-                $symbol = $market['symbol'];
-            }
-        }
+        $symbol = $this->safe_symbol($marketId, $market, '_');
         $orderType = $this->safe_string($order, 'type');
         $timestamp = $this->parse8601($this->safe_string($order, 'created_at'));
         $price = $this->safe_float($order, 'price');
@@ -469,10 +446,10 @@ class bitso extends Exchange {
         $response = $this->privateGetFundingDestination (array_merge($request, $params));
         $address = $this->safe_string($response['payload'], 'account_identifier');
         $tag = null;
-        if ($code === 'XRP') {
+        if (mb_strpos($address, '?dt=') !== false) {
             $parts = explode('?dt=', $address);
-            $address = $parts[0];
-            $tag = $parts[1];
+            $address = $this->safe_string($parts, 0);
+            $tag = $this->safe_string($parts, 1);
         }
         $this->check_address($address);
         return array(

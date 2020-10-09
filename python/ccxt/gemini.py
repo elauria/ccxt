@@ -11,7 +11,6 @@ try:
     basestring  # Python 3
 except NameError:
     basestring = str  # Python 2
-import base64
 import hashlib
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import AuthenticationError
@@ -23,6 +22,7 @@ from ccxt.base.errors import InvalidOrder
 from ccxt.base.errors import OrderNotFound
 from ccxt.base.errors import NotSupported
 from ccxt.base.errors import RateLimitExceeded
+from ccxt.base.errors import ExchangeNotAvailable
 from ccxt.base.errors import OnMaintenance
 from ccxt.base.errors import InvalidNonce
 
@@ -136,7 +136,7 @@ class gemini(Exchange):
                 '406': InsufficientFunds,  # Insufficient Funds
                 '429': RateLimitExceeded,  # Rate Limiting was applied
                 '500': ExchangeError,  # The server encountered an error
-                '502': ExchangeError,  # Technical issues are preventing the request from being satisfied
+                '502': ExchangeNotAvailable,  # Technical issues are preventing the request from being satisfied
                 '503': OnMaintenance,  # The exchange is down for maintenance
             },
             'timeframes': {
@@ -183,6 +183,7 @@ class gemini(Exchange):
                 },
                 'broad': {
                     'The Gemini Exchange is currently undergoing maintenance.': OnMaintenance,  # The Gemini Exchange is currently undergoing maintenance. Please check https://status.gemini.com/ for more information.
+                    'We are investigating technical issues with the Gemini Exchange.': ExchangeNotAvailable,  # We are investigating technical issues with the Gemini Exchange. Please check https://status.gemini.com/ for more information.
                 },
             },
             'options': {
@@ -293,14 +294,8 @@ class gemini(Exchange):
             id = response[i]
             market = id
             idLength = len(id) - 0
-            baseId = None
-            quoteId = None
-            if idLength == 7:
-                baseId = id[0:4]
-                quoteId = id[4:7]
-            else:
-                baseId = id[0:3]
-                quoteId = id[3:6]
+            baseId = id[0:idLength - 3]
+            quoteId = id[idLength - 3:idLength]
             base = self.safe_currency_code(baseId)
             quote = self.safe_currency_code(quoteId)
             symbol = base + '/' + quote
@@ -540,6 +535,19 @@ class gemini(Exchange):
         return self.parse_tickers(response, symbols)
 
     def parse_trade(self, trade, market=None):
+        #
+        # public fetchTrades
+        #
+        #     {
+        #         "timestamp":1601617445,
+        #         "timestampms":1601617445144,
+        #         "tid":14122489752,
+        #         "price":"0.46476",
+        #         "amount":"28.407209",
+        #         "exchange":"gemini",
+        #         "type":"buy"
+        #     }
+        #
         timestamp = self.safe_integer(trade, 'timestampms')
         id = self.safe_string(trade, 'tid')
         orderId = self.safe_string(trade, 'order_id')
@@ -557,9 +565,7 @@ class gemini(Exchange):
                 cost = price * amount
         type = None
         side = self.safe_string_lower(trade, 'type')
-        symbol = None
-        if market is not None:
-            symbol = market['symbol']
+        symbol = self.safe_symbol(None, market)
         return {
             'id': id,
             'order': orderId,
@@ -583,6 +589,19 @@ class gemini(Exchange):
             'symbol': market['id'],
         }
         response = self.publicGetV1TradesSymbol(self.extend(request, params))
+        #
+        #     [
+        #         {
+        #             "timestamp":1601617445,
+        #             "timestampms":1601617445144,
+        #             "tid":14122489752,
+        #             "price":"0.46476",
+        #             "amount":"28.407209",
+        #             "exchange":"gemini",
+        #             "type":"buy"
+        #         },
+        #     ]
+        #
         return self.parse_trades(response, market, since, limit)
 
     def fetch_balance(self, params={}):
@@ -623,13 +642,8 @@ class gemini(Exchange):
         else:
             type = order['type']
         fee = None
-        symbol = None
-        if market is None:
-            marketId = self.safe_string(order, 'symbol')
-            if marketId in self.markets_by_id:
-                market = self.markets_by_id[marketId]
-        if market is not None:
-            symbol = market['symbol']
+        marketId = self.safe_string(order, 'symbol')
+        symbol = self.safe_symbol(marketId, market)
         id = self.safe_string(order, 'order_id')
         side = self.safe_string_lower(order, 'side')
         clientOrderId = self.safe_string(order, 'client_order_id')
@@ -784,7 +798,7 @@ class gemini(Exchange):
                 'nonce': nonce,
             }, query)
             payload = self.json(request)
-            payload = base64.b64encode(self.encode(payload))
+            payload = self.string_to_base64(payload)
             signature = self.hmac(payload, self.encode(self.secret), hashlib.sha384)
             headers = {
                 'Content-Type': 'text/plain',

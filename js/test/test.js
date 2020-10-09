@@ -238,6 +238,7 @@ async function testExchange (exchange) {
         'BTC/ETH',
         'ETH/BTC',
         'ETH/USD',
+        'ETH/USDT',
         'BTC/JPY',
         'LTC/BTC',
         'ZRX/WETH',
@@ -365,17 +366,18 @@ async function tryAllProxies (exchange, proxies) {
         } catch (e) {
 
             currentProxy = ++currentProxy % proxies.length
+            warn ('[' + e.constructor.name + '] ' + e.message.slice (0, 200))
             if (e instanceof ccxt.DDoSProtection) {
-                warn ('[DDoS Protection]' + e.message.slice (0, 200))
+                continue
             } else if (e instanceof ccxt.RequestTimeout) {
-                warn ('[Request Timeout] ' + e.message.slice (0, 200))
+                continue
             } else if (e instanceof ccxt.ExchangeNotAvailable) {
-                warn ('[Exchange Not Available] ' + e.message.slice (0, 200))
+                continue
             } else if (e instanceof ccxt.AuthenticationError) {
-                warn ('[Authentication Error] ' + e.message.slice (0, 200))
+                return
+            } else if (e instanceof ccxt.AuthenticationError) {
                 return
             } else if (e instanceof ccxt.InvalidNonce) {
-                warn ('[Invalid Nonce] ' + e.message.slice (0, 200))
                 return
             } else {
                 throw e

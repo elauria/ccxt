@@ -494,17 +494,7 @@ class bitpanda(Exchange):
         #
         timestamp = self.parse8601(self.safe_string(ticker, 'time'))
         marketId = self.safe_string(ticker, 'instrument_code')
-        symbol = None
-        if marketId is not None:
-            if marketId in self.markets_by_id:
-                market = self.markets_by_id[marketId]
-            elif marketId is not None:
-                baseId, quoteId = marketId.split('_')
-                base = self.safe_currency_code(baseId)
-                quote = self.safe_currency_code(quoteId)
-                symbol = base + '/' + quote
-        if (symbol is None) and (market is not None):
-            symbol = market['symbol']
+        symbol = self.safe_symbol(marketId, market, '_')
         last = self.safe_float(ticker, 'last_price')
         percentage = self.safe_float(ticker, 'price_change_percentage')
         change = self.safe_float(ticker, 'price_change')
@@ -758,7 +748,7 @@ class bitpanda(Exchange):
         #         "sequence":603047
         #     }
         #
-        # fetchOrder, fetchOpenOrders, fetchClosedOrders trades(private)
+        # fetchMyTrades, fetchOrder, fetchOpenOrders, fetchClosedOrders trades(private)
         #
         #     {
         #         "fee": {
@@ -792,18 +782,7 @@ class bitpanda(Exchange):
         if (cost is None) and (amount is not None) and (price is not None):
             cost = amount * price
         marketId = self.safe_string(trade, 'instrument_code')
-        symbol = None
-        if marketId is not None:
-            if marketId in self.markets_by_id:
-                market = self.markets_by_id[marketId]
-                symbol = market['symbol']
-            else:
-                baseId, quoteId = marketId.split('_')
-                base = self.safe_currency_code(baseId)
-                quote = self.safe_currency_code(quoteId)
-                symbol = base + '/' + quote
-        if (market is not None) and (symbol is None):
-            symbol = market['symbol']
+        symbol = self.safe_symbol(marketId, market, '_')
         feeCost = self.safe_float(feeInfo, 'fee_amount')
         takerOrMaker = None
         fee = None
@@ -1184,18 +1163,8 @@ class bitpanda(Exchange):
         clientOrderId = self.safe_string(order, 'client_id')
         timestamp = self.parse8601(self.safe_string(order, 'time'))
         status = self.parse_order_status(self.safe_string(order, 'status'))
-        symbol = None
         marketId = self.safe_string(order, 'instrument_code')
-        if marketId is not None:
-            if marketId in self.markets_by_id:
-                market = self.markets_by_id[marketId]
-            else:
-                baseId, quoteId = marketId.split('_')
-                base = self.safe_currency_code(baseId)
-                quote = self.safe_currency_code(quoteId)
-                symbol = base + '/' + quote
-        if (symbol is None) and (market is not None):
-            symbol = market['symbol']
+        symbol = self.safe_symbol(marketId, market, '_')
         price = self.safe_float(order, 'price')
         amount = self.safe_float(order, 'amount')
         cost = None
@@ -1284,7 +1253,7 @@ class bitpanda(Exchange):
         uppercaseType = type.upper()
         request = {
             'instrument_code': market['id'],
-            'type': type.upper(),  # LIMIT, MARKET, STOP
+            'type': uppercaseType,  # LIMIT, MARKET, STOP
             'side': side.upper(),  # or SELL
             'amount': self.amount_to_precision(symbol, amount),
             # "price": "1234.5678",  # required for LIMIT and STOP orders
@@ -1660,9 +1629,9 @@ class bitpanda(Exchange):
         #     {"error":"MISSING_TO_PARAM"}
         #     {"error":"CANDLESTICKS_TIME_RANGE_TOO_BIG"}
         #
-        feedback = self.id + ' ' + body
         message = self.safe_string(response, 'error')
         if message is not None:
+            feedback = self.id + ' ' + body
             self.throw_exactly_matched_exception(self.exceptions['exact'], message, feedback)
             self.throw_broadly_matched_exception(self.exceptions['broad'], message, feedback)
             raise ExchangeError(feedback)  # unknown message
