@@ -714,10 +714,10 @@ module.exports = class binance extends Exchange {
             const filters = this.safeValue (market, 'filters', []);
             const filtersByType = this.indexBy (filters, 'filterType');
             const precision = {
-                'base': 1/Math.pow(10, this.safeInteger (market, 'baseAssetPrecision')),
-                'quote': 1/Math.pow(10, this.safeInteger (market, 'quotePrecision')),
-                'amount': 1/Math.pow(10, this.safeInteger (market, 'baseAssetPrecision')),
-                'price': 1/Math.pow(10, this.safeInteger (market, 'quotePrecision')),
+                'base': this.safeInteger (market, 'baseAssetPrecision'),
+                'quote': this.safeInteger (market, 'quotePrecision'),
+                'amount': this.safeInteger (market, 'baseAssetPrecision'),
+                'price': this.safeInteger (market, 'quotePrecision'),
             };
             const status = this.safeString2 (market, 'status', 'contractStatus');
             const active = (status === 'TRADING');
@@ -767,12 +767,12 @@ module.exports = class binance extends Exchange {
                 if ((maxPrice !== undefined) && (maxPrice > 0)) {
                     entry['limits']['price']['max'] = maxPrice;
                 }
-                entry['precision']['price'] = 1/Math.pow(10, this.precisionFromString (filter['tickSize']));
+                entry['precision']['price'] = this.precisionFromString (filter['tickSize']);
             }
             if ('LOT_SIZE' in filtersByType) {
                 const filter = this.safeValue (filtersByType, 'LOT_SIZE', {});
                 const stepSize = this.safeString (filter, 'stepSize');
-                entry['precision']['amount'] = 1/Math.pow(10, this.precisionFromString (stepSize));
+                entry['precision']['amount'] = this.precisionFromString (stepSize);
                 entry['limits']['amount'] = {
                     'min': this.safeFloat (filter, 'minQty'),
                     'max': this.safeFloat (filter, 'maxQty'),
@@ -1483,6 +1483,9 @@ module.exports = class binance extends Exchange {
             timestamp = this.safeInteger (order, 'transactTime');
         }
         let price = this.safeFloat (order, 'price');
+        if (this.safeFloat(order, 'stopPrice')) {
+            price = this.safeFloat (order, 'stopPrice');
+        }
         const amount = this.safeFloat (order, 'origQty');
         const filled = this.safeFloat (order, 'executedQty');
         let remaining = undefined;
