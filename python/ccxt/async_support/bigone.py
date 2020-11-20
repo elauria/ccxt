@@ -154,6 +154,7 @@ class bigone(Exchange):
                 },
             },
             'commonCurrencies': {
+                'MBN': 'Mobilian Coin',
                 'ONE': 'BigONE Token',
             },
         })
@@ -689,6 +690,7 @@ class bigone(Exchange):
             'lastTradeTimestamp': lastTradeTimestamp,
             'symbol': symbol,
             'type': None,
+            'timeInForce': None,
             'side': side,
             'price': price,
             'amount': amount,

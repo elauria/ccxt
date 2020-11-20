@@ -170,6 +170,8 @@ class digifinex(Exchange):
             },
             'commonCurrencies': {
                 'BHT': 'Black House Test',
+                'MBN': 'Mobilian Coin',
+                'TEL': 'TEL666',
             },
         })
 
@@ -840,6 +842,7 @@ class digifinex(Exchange):
             'lastTradeTimestamp': lastTradeTimestamp,
             'symbol': symbol,
             'type': type,
+            'timeInForce': None,
             'side': side,
             'price': price,
             'amount': amount,

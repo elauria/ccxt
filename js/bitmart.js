@@ -433,7 +433,7 @@ module.exports = class bitmart extends Exchange {
             //
             const pricePrecision = this.safeInteger (market, 'price_max_precision');
             const precision = {
-                'amount': this.safeFloat (market, 'quote_increment'),
+                'amount': this.safeFloat (market, 'base_min_size'),
                 'price': parseFloat (this.decimalToPrecision (Math.pow (10, -pricePrecision), ROUND, 10)),
             };
             const minBuyCost = this.safeFloat (market, 'min_buy_amount');
@@ -680,10 +680,7 @@ module.exports = class bitmart extends Exchange {
         }
         const baseVolume = this.safeFloat2 (ticker, 'base_volume_24h', 'base_coin_volume');
         const quoteVolume = this.safeFloat2 (ticker, 'quote_volume_24h', 'quote_coin_volume');
-        let vwap = undefined;
-        if ((quoteVolume !== undefined) && (baseVolume !== undefined) && (baseVolume !== 0)) {
-            vwap = quoteVolume / baseVolume;
-        }
+        const vwap = this.vwap (baseVolume, quoteVolume);
         const open = this.safeFloat2 (ticker, 'open_24h', 'open');
         let average = undefined;
         if ((last !== undefined) && (open !== undefined)) {
@@ -1543,21 +1540,8 @@ module.exports = class bitmart extends Exchange {
         id = this.safeString (order, 'order_id', id);
         let timestamp = this.parse8601 (this.safeString (order, 'created_at'));
         timestamp = this.safeInteger (order, 'create_time', timestamp);
-        let symbol = undefined;
         const marketId = this.safeString2 (order, 'symbol', 'contract_id');
-        if (marketId !== undefined) {
-            if (marketId in this.markets_by_id) {
-                market = this.markets_by_id[marketId];
-            } else {
-                const [ baseId, quoteId ] = marketId.split ('_');
-                const base = this.safeCurrencyCode (baseId);
-                const quote = this.safeCurrencyCode (quoteId);
-                symbol = base + '/' + quote;
-            }
-        }
-        if ((symbol === undefined) && (market !== undefined)) {
-            symbol = market['symbol'];
-        }
+        const symbol = this.safeSymbol (marketId, market, '_');
         let status = undefined;
         if (market !== undefined) {
             status = this.parseOrderStatusByType (market['type'], this.safeString (order, 'status'));
@@ -1615,6 +1599,7 @@ module.exports = class bitmart extends Exchange {
             'lastTradeTimestamp': undefined,
             'symbol': symbol,
             'type': type,
+            'timeInForce': undefined,
             'side': side,
             'price': price,
             'amount': amount,

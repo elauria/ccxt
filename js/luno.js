@@ -178,6 +178,14 @@ module.exports = class luno extends Exchange {
         return this.parseOrderBook (response, timestamp, 'bids', 'asks', 'price', 'volume');
     }
 
+    parseOrderStatus (status) {
+        const statuses = {
+            // todo add other statuses
+            'PENDING': 'open',
+        };
+        return this.safeString (statuses, status, status);
+    }
+
     parseOrder (order, market = undefined) {
         //
         //     {
@@ -197,7 +205,8 @@ module.exports = class luno extends Exchange {
         //     }
         //
         const timestamp = this.safeInteger (order, 'creation_timestamp');
-        const status = (order['state'] === 'PENDING') ? 'open' : 'closed';
+        let status = this.parseOrderStatus (this.safeString (order, 'state'));
+        status = (status === 'open') ? status : status;
         const side = (order['type'] === 'ASK') ? 'sell' : 'buy';
         const marketId = this.safeString (order, 'pair');
         const symbol = this.safeSymbol (marketId, market);
@@ -235,6 +244,7 @@ module.exports = class luno extends Exchange {
             'status': status,
             'symbol': symbol,
             'type': undefined,
+            'timeInForce': undefined,
             'side': side,
             'price': price,
             'amount': amount,
@@ -324,7 +334,7 @@ module.exports = class luno extends Exchange {
         const result = {};
         for (let i = 0; i < ids.length; i++) {
             const id = ids[i];
-            const market = this.markets_by_id[id];
+            const market = this.safeMarket (id);
             const symbol = market['symbol'];
             const ticker = tickers[id];
             result[symbol] = this.parseTicker (ticker, market);

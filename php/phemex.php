@@ -1160,7 +1160,9 @@ class phemex extends Exchange {
         $cost = null;
         $type = null;
         $fee = null;
-        $symbol = null;
+        $marketId = $this->safe_string($trade, 'symbol');
+        $market = $this->safe_market($marketId, $market);
+        $symbol = $market['symbol'];
         $orderId = null;
         $takerOrMaker = null;
         if (gettype($trade) === 'array' && count(array_filter(array_keys($trade), 'is_string')) == 0) {
@@ -1170,13 +1172,11 @@ class phemex extends Exchange {
                 $id = $this->safe_string($trade, $tradeLength - 4);
             }
             $side = $this->safe_string_lower($trade, $tradeLength - 3);
-            if ($market !== null) {
-                $price = $this->from_ep($this->safe_float($trade, $tradeLength - 2), $market);
-                $amount = $this->from_ev($this->safe_float($trade, $tradeLength - 1), $market);
-                if ($market['spot']) {
-                    if (($price !== null) && ($amount !== null)) {
-                        $cost = $price * $amount;
-                    }
+            $price = $this->from_ep($this->safe_float($trade, $tradeLength - 2), $market);
+            $amount = $this->from_ev($this->safe_float($trade, $tradeLength - 1), $market);
+            if ($market['spot']) {
+                if (($price !== null) && ($amount !== null)) {
+                    $cost = $price * $amount;
                 }
             }
         } else {
@@ -1189,8 +1189,6 @@ class phemex extends Exchange {
             if ($execStatus === 'MakerFill') {
                 $takerOrMaker = 'maker';
             }
-            $marketId = $this->safe_string($trade, 'symbol');
-            $symbol = $this->safe_symbol($marketId, $market);
             $price = $this->from_ep($this->safe_float($trade, 'execPriceEp'), $market);
             $amount = $this->from_ev($this->safe_float($trade, 'execBaseQtyEv'), $market);
             $amount = $this->safe_float($trade, 'execQty', $amount);
@@ -1519,6 +1517,16 @@ class phemex extends Exchange {
         return $this->safe_string($types, $type, $type);
     }
 
+    public function parse_time_in_force($timeInForce) {
+        $timeInForces = array(
+            'GoodTillCancel' => 'GTC',
+            'PostOnly' => 'PO',
+            'ImmediateOrCancel' => 'IOC',
+            'FillOrKill' => 'FOK',
+        );
+        return $this->safe_string($timeInForces, $timeInForce, $timeInForce);
+    }
+
     public function parse_spot_order($order, $market = null) {
         //
         // spot
@@ -1536,7 +1544,7 @@ class phemex extends Exchange {
         //         "$side" => "Buy",
         //         "baseQtyEv" => 0,
         //         "ordType" => "Limit",
-        //         "timeInForce" => "GoodTillCancel",
+        //         "$timeInForce" => "GoodTillCancel",
         //         "ordStatus" => "Created",
         //         "cumFeeEv" => 0,
         //         "cumBaseQtyEv" => 0,
@@ -1567,7 +1575,7 @@ class phemex extends Exchange {
         //         "quoteQtyEv":250000000000,
         //         "priceEp":25000000000,
         //         "ordType":"Limit",
-        //         "timeInForce":"GoodTillCancel",
+        //         "$timeInForce":"GoodTillCancel",
         //         "ordStatus":"Rejected",
         //         "execStatus":"NewRejected",
         //         "createTimeNs":1592675305266037130,
@@ -1609,6 +1617,7 @@ class phemex extends Exchange {
                 $filled = min (0, $amount - $remaining);
             }
         }
+        $timeInForce = $this->parse_time_in_force($this->safeStirng ($order, 'timeInForce'));
         return array(
             'info' => $order,
             'id' => $id,
@@ -1618,6 +1627,7 @@ class phemex extends Exchange {
             'lastTradeTimestamp' => null,
             'symbol' => $symbol,
             'type' => $type,
+            'timeInForce' => $timeInForce,
             'side' => $side,
             'price' => $price,
             'amount' => $amount,
@@ -1646,7 +1656,7 @@ class phemex extends Exchange {
         //         "$price":226.75000000,
         //         "orderQty":1,
         //         "displayQty":0,
-        //         "timeInForce":"ImmediateOrCancel",
+        //         "$timeInForce":"ImmediateOrCancel",
         //         "reduceOnly":false,
         //         "closedPnlEv":0,
         //         "closedPnl":0E-8,
@@ -1687,6 +1697,7 @@ class phemex extends Exchange {
         if ($lastTradeTimestamp === 0) {
             $lastTradeTimestamp = null;
         }
+        $timeInForce = $this->parse_time_in_force($this->safe_string($order, 'timeInForce'));
         return array(
             'info' => $order,
             'id' => $id,
@@ -1696,6 +1707,7 @@ class phemex extends Exchange {
             'lastTradeTimestamp' => $lastTradeTimestamp,
             'symbol' => $symbol,
             'type' => $type,
+            'timeInForce' => $timeInForce,
             'side' => $side,
             'price' => $price,
             'amount' => $amount,
@@ -2308,6 +2320,103 @@ class phemex extends Exchange {
             'updated' => null,
             'fee' => $fee,
         );
+    }
+
+    public function fetch_positions($symbols = null, $since = null, $limit = null, $params = array ()) {
+        $this->load_markets();
+        $code = $this->safe_string($params, 'code');
+        $request = array();
+        if ($code === null) {
+            $currencyId = $this->safe_string($params, 'currency');
+            if ($currencyId === null) {
+                throw new ArgumentsRequired($this->id . ' fetchPositions() requires a $currency parameter or a $code parameter');
+            }
+        } else {
+            $currency = $this->currency($code);
+            $params = $this->omit($params, 'code');
+            $request['currency'] = $currency['id'];
+        }
+        $response = $this->privateGetAccountsAccountPositions (array_merge($request, $params));
+        //
+        //     {
+        //         "$code":0,"msg":"",
+        //         "$data":{
+        //             "account":array(
+        //                 "accountId":6192120001,
+        //                 "$currency":"BTC",
+        //                 "accountBalanceEv":1254744,
+        //                 "totalUsedBalanceEv":0,
+        //                 "bonusBalanceEv":1254744
+        //             ),
+        //             "$positions":array(
+        //                 {
+        //                     "accountID":6192120001,
+        //                     "symbol":"BTCUSD",
+        //                     "$currency":"BTC",
+        //                     "side":"None",
+        //                     "positionStatus":"Normal",
+        //                     "crossMargin":false,
+        //                     "leverageEr":100000000,
+        //                     "leverage":1.00000000,
+        //                     "initMarginReqEr":100000000,
+        //                     "initMarginReq":1.00000000,
+        //                     "maintMarginReqEr":500000,
+        //                     "maintMarginReq":0.00500000,
+        //                     "riskLimitEv":10000000000,
+        //                     "riskLimit":100.00000000,
+        //                     "size":0,
+        //                     "value":0E-8,
+        //                     "valueEv":0,
+        //                     "avgEntryPriceEp":0,
+        //                     "avgEntryPrice":0E-8,
+        //                     "posCostEv":0,
+        //                     "posCost":0E-8,
+        //                     "assignedPosBalanceEv":0,
+        //                     "assignedPosBalance":0E-8,
+        //                     "bankruptCommEv":0,
+        //                     "bankruptComm":0E-8,
+        //                     "bankruptPriceEp":0,
+        //                     "bankruptPrice":0E-8,
+        //                     "positionMarginEv":0,
+        //                     "positionMargin":0E-8,
+        //                     "liquidationPriceEp":0,
+        //                     "liquidationPrice":0E-8,
+        //                     "deleveragePercentileEr":0,
+        //                     "deleveragePercentile":0E-8,
+        //                     "buyValueToCostEr":100225000,
+        //                     "buyValueToCost":1.00225000,
+        //                     "sellValueToCostEr":100075000,
+        //                     "sellValueToCost":1.00075000,
+        //                     "markPriceEp":135736070,
+        //                     "markPrice":13573.60700000,
+        //                     "markValueEv":0,
+        //                     "markValue":null,
+        //                     "unRealisedPosLossEv":0,
+        //                     "unRealisedPosLoss":null,
+        //                     "estimatedOrdLossEv":0,
+        //                     "estimatedOrdLoss":0E-8,
+        //                     "usedBalanceEv":0,
+        //                     "usedBalance":0E-8,
+        //                     "takeProfitEp":0,
+        //                     "takeProfit":null,
+        //                     "stopLossEp":0,
+        //                     "stopLoss":null,
+        //                     "cumClosedPnlEv":0,
+        //                     "cumFundingFeeEv":0,
+        //                     "cumTransactFeeEv":0,
+        //                     "realisedPnlEv":0,
+        //                     "realisedPnl":null,
+        //                     "cumRealisedPnlEv":0,
+        //                     "cumRealisedPnl":null
+        //                 }
+        //             )
+        //         }
+        //     }
+        //
+        $data = $this->safe_value($response, 'data', array());
+        $positions = $this->safe_value($data, 'positions', array());
+        // todo unify parsePosition/parsePositions
+        return $positions;
     }
 
     public function sign($path, $api = 'public', $method = 'GET', $params = array (), $headers = null, $body = null) {

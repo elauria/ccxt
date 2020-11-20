@@ -130,6 +130,9 @@ module.exports = class crex24 extends Exchange {
                 'BULL': 'BuySell',
                 'CREDIT': 'TerraCredit',
                 'GHOST': 'GHOSTPRISM',
+                'IQ': 'IQ.Cash',
+                'PUT': 'PutinCoin',
+                'UNI': 'Universe',
                 'YOYO': 'YOYOW',
             },
             // exchange-specific options
@@ -700,6 +703,7 @@ module.exports = class crex24 extends Exchange {
                 cost = parseFloat (this.costToPrecision (symbol, cost));
             }
         }
+        const timeInForce = this.safeString (order, 'timeInForce');
         return {
             'info': order,
             'id': id,
@@ -709,6 +713,7 @@ module.exports = class crex24 extends Exchange {
             'lastTradeTimestamp': lastTradeTimestamp,
             'symbol': symbol,
             'type': type,
+            'timeInForce': timeInForce,
             'side': side,
             'price': price,
             'amount': amount,

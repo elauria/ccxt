@@ -309,10 +309,10 @@ class coinfalcon extends Exchange {
         $cost = null;
         if ($amount !== null) {
             if ($filled !== null) {
-                $remaining = floatval($this->amount_to_precision($symbol, $amount - $filled));
+                $remaining = max (0, $amount - $filled);
             }
             if ($price !== null) {
-                $cost = floatval($this->price_to_precision($symbol, $filled * $price));
+                $cost = $filled * $price;
             }
         }
         $status = $this->parse_order_status($this->safe_string($order, 'status'));
@@ -330,6 +330,7 @@ class coinfalcon extends Exchange {
             'status' => $status,
             'symbol' => $symbol,
             'type' => $type,
+            'timeInForce' => null,
             'side' => $side,
             'price' => $price,
             'cost' => $cost,
@@ -395,10 +396,11 @@ class coinfalcon extends Exchange {
         if ($since !== null) {
             $request['since_time'] = $this->iso8601($since);
         }
-        // TODO => test status=all if it works for closed orders too
+        // TODO => test status=all if it works for closed $orders too
         $response = $this->privateGetUserOrders (array_merge($request, $params));
         $data = $this->safe_value($response, 'data', array());
-        return $this->parse_orders($data, $market, $since, $limit);
+        $orders = $this->filter_by_array($data, 'status', array( 'pending', 'open', 'partially_filled' ), false);
+        return $this->parse_orders($orders, $market, $since, $limit);
     }
 
     public function nonce() {

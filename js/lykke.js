@@ -360,8 +360,8 @@ module.exports = class lykke extends Exchange {
             const quote = this.safeCurrencyCode (quoteId);
             const symbol = base + '/' + quote;
             const precision = {
-                'amount': this.safeInteger (market, 'Accuracy'),
-                'price': this.safeInteger (market, 'InvertedAccuracy'),
+                'price': this.safeInteger (market, 'Accuracy'),
+                'amount': this.safeInteger (market, 'InvertedAccuracy'),
             };
             result.push ({
                 'id': id,
@@ -498,6 +498,7 @@ module.exports = class lykke extends Exchange {
             'lastTradeTimestamp': lastTradeTimestamp,
             'symbol': symbol,
             'type': undefined,
+            'timeInForce': undefined,
             'side': side,
             'price': price,
             'cost': cost,

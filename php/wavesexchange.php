@@ -746,8 +746,8 @@ class wavesexchange extends Exchange {
         $items = $this->safe_value($supportedCurrencies, 'items', array());
         for ($i = 0; $i < count($items); $i++) {
             $entry = $items[$i];
-            $code = $this->safe_string($entry, 'id');
-            $currencies[$code] = true;
+            $currencyCode = $this->safe_string($entry, 'id');
+            $currencies[$currencyCode] = true;
         }
         if (!(is_array($currencies) && array_key_exists($code, $currencies))) {
             $codes = is_array($currencies) ? array_keys($currencies) : array();
@@ -1269,6 +1269,7 @@ class wavesexchange extends Exchange {
             'lastTradeTimestamp' => null,
             'symbol' => $symbol,
             'type' => $type,
+            'timeInForce' => null,
             'side' => $side,
             'price' => $price,
             'amount' => $amount,
@@ -1557,8 +1558,8 @@ class wavesexchange extends Exchange {
             $items = $this->safe_value($supportedCurrencies, 'items', array());
             for ($i = 0; $i < count($items); $i++) {
                 $entry = $items[$i];
-                $code = $this->safe_string($entry, 'id');
-                $currencies[$code] = true;
+                $currencyCode = $this->safe_string($entry, 'id');
+                $currencies[$currencyCode] = true;
             }
             if (!(is_array($currencies) && array_key_exists($code, $currencies))) {
                 $codes = is_array($currencies) ? array_keys($currencies) : array();

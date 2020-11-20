@@ -1,6 +1,6 @@
 {
   "name": "ccxt",
-  "version": "1.35.80",
+  "version": "1.38.4",
   "description": "A JavaScript / Python / PHP cryptocurrency trading library with support for 130+ exchanges",
   "main": "./ccxt.js",
   "unpkg": "dist/ccxt.browser.js",
@@ -532,7 +532,10 @@
     "NovaDAX",
     "exchange.ripio.com",
     "Ripio",
-    "huobi.com"
+    "huobi.com",
+    "exchange.bitcoin.com",
+    "bitcoin.com",
+    "bibox365.com"
   ],
   "collective": {
     "type": "opencollective",

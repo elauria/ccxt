@@ -161,6 +161,8 @@ class digifinex extends Exchange {
             ),
             'commonCurrencies' => array(
                 'BHT' => 'Black House Test',
+                'MBN' => 'Mobilian Coin',
+                'TEL' => 'TEL666',
             ),
         ));
     }
@@ -872,6 +874,7 @@ class digifinex extends Exchange {
             'lastTradeTimestamp' => $lastTradeTimestamp,
             'symbol' => $symbol,
             'type' => $type,
+            'timeInForce' => null,
             'side' => $side,
             'price' => $price,
             'amount' => $amount,

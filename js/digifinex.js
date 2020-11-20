@@ -157,6 +157,8 @@ module.exports = class digifinex extends Exchange {
             },
             'commonCurrencies': {
                 'BHT': 'Black House Test',
+                'MBN': 'Mobilian Coin',
+                'TEL': 'TEL666',
             },
         });
     }
@@ -868,6 +870,7 @@ module.exports = class digifinex extends Exchange {
             'lastTradeTimestamp': lastTradeTimestamp,
             'symbol': symbol,
             'type': type,
+            'timeInForce': undefined,
             'side': side,
             'price': price,
             'amount': amount,

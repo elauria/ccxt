@@ -180,6 +180,12 @@ class binance extends Exchange {
                         'mining/payment/list',
                         'mining/statistics/user/status',
                         'mining/statistics/user/list',
+                        // liquid swap endpoints
+                        'bswap/pools',
+                        'bswap/liquidity',
+                        'bswap/liquidityOps',
+                        'bswap/quote',
+                        'bswap/swap',
                     ),
                     'post' => array(
                         'asset/dust',
@@ -210,6 +216,10 @@ class binance extends Exchange {
                         'lending/customizedFixed/purchase',
                         'lending/daily/purchase',
                         'lending/daily/redeem',
+                        // liquid swap endpoints
+                        'bswap/liquidityAdd',
+                        'bswap/liquidityRemove',
+                        'bswap/swap',
                     ),
                     'put' => array(
                         'userDataStream',
@@ -706,7 +716,7 @@ class binance extends Exchange {
             $future = false;
             $delivery = false;
             if (is_array($market) && array_key_exists('maintMarginPercent', $market)) {
-                $delivery = (is_array($market) && array_key_exists('marginAsset', $market));
+                $delivery = (is_array($market) && array_key_exists('deliveryDate', $market));
                 $future = !$delivery;
                 $marketType = $delivery ? 'delivery' : 'future';
             }
@@ -1116,6 +1126,10 @@ class binance extends Exchange {
             $method = 'dapiPublicGetTicker24hr';
         }
         $response = $this->$method (array_merge($request, $params));
+        if (gettype($response) === 'array' && count(array_filter(array_keys($response), 'is_string')) == 0) {
+            $firstTicker = $this->safe_value($response, 0, array());
+            return $this->parse_ticker($firstTicker, $market);
+        }
         return $this->parse_ticker($response, $market);
     }
 
@@ -1452,7 +1466,7 @@ class binance extends Exchange {
         //         "executedQty" => "0.0",
         //         "cummulativeQuoteQty" => "0.0",
         //         "$status" => "NEW",
-        //         "timeInForce" => "GTC",
+        //         "$timeInForce" => "GTC",
         //         "$type" => "LIMIT",
         //         "$side" => "BUY",
         //         "stopPrice" => "0.0",
@@ -1473,7 +1487,7 @@ class binance extends Exchange {
         //         "executedQty" => "1.0",
         //         "cumQuote" => "10.0",
         //         "$status" => "NEW",
-        //         "timeInForce" => "GTC",
+        //         "$timeInForce" => "GTC",
         //         "$type" => "LIMIT",
         //         "$side" => "BUY",
         //         "stopPrice" => "0.0",
@@ -1559,6 +1573,7 @@ class binance extends Exchange {
             }
         }
         $clientOrderId = $this->safe_string($order, 'clientOrderId');
+        $timeInForce = $this->safe_string($order, 'timeInForce');
         return array(
             'info' => $order,
             'id' => $id,
@@ -1568,6 +1583,7 @@ class binance extends Exchange {
             'lastTradeTimestamp' => null,
             'symbol' => $symbol,
             'type' => $type,
+            'timeInForce' => $timeInForce,
             'side' => $side,
             'price' => $price,
             'amount' => $amount,
@@ -1921,6 +1937,57 @@ class binance extends Exchange {
         } else {
             return $response;
         }
+    }
+
+    public function fetch_positions($symbols = null, $since = null, $limit = null, $params = array ()) {
+        $this->load_markets();
+        $response = $this->fetch_balance($params);
+        $info = $this->safe_value($response, 'info', array());
+        //
+        // futures, delivery
+        //
+        //     {
+        //         "feeTier":0,
+        //         "canTrade":true,
+        //         "canDeposit":true,
+        //         "canWithdraw":true,
+        //         "updateTime":0,
+        //         "assets":array(
+        //             {
+        //                 "asset":"ETH",
+        //                 "walletBalance":"0.09886711",
+        //                 "unrealizedProfit":"0.00000000",
+        //                 "marginBalance":"0.09886711",
+        //                 "maintMargin":"0.00000000",
+        //                 "initialMargin":"0.00000000",
+        //                 "positionInitialMargin":"0.00000000",
+        //                 "openOrderInitialMargin":"0.00000000",
+        //                 "maxWithdrawAmount":"0.09886711",
+        //                 "crossWalletBalance":"0.09886711",
+        //                 "crossUnPnl":"0.00000000",
+        //                 "availableBalance":"0.09886711"
+        //             }
+        //         ),
+        //         "$positions":array(
+        //             array(
+        //                 "symbol":"BTCUSD_201225",
+        //                 "initialMargin":"0",
+        //                 "maintMargin":"0",
+        //                 "unrealizedProfit":"0.00000000",
+        //                 "positionInitialMargin":"0",
+        //                 "openOrderInitialMargin":"0",
+        //                 "leverage":"20",
+        //                 "isolated":false,
+        //                 "positionSide":"BOTH",
+        //                 "entryPrice":"0.00000000",
+        //                 "maxQty":"250", // "maxNotional" on futures
+        //             ),
+        //         )
+        //     }
+        //
+        $positions = $this->safe_value_2($info, 'positions', 'userAssets', array());
+        // todo unify parsePosition/parsePositions
+        return $positions;
     }
 
     public function fetch_my_trades($symbol = null, $since = null, $limit = null, $params = array ()) {
@@ -2355,11 +2422,7 @@ class binance extends Exchange {
         //     }
         //
         $marketId = $this->safe_string($fee, 'symbol');
-        $symbol = $marketId;
-        if (is_array($this->markets_by_id) && array_key_exists($marketId, $this->markets_by_id)) {
-            $market = $this->markets_by_id[$marketId];
-            $symbol = $market['symbol'];
-        }
+        $symbol = $this->safe_symbol($marketId);
         return array(
             'info' => $fee,
             'symbol' => $symbol,

@@ -147,6 +147,7 @@ class bigone extends Exchange {
                 ),
             ),
             'commonCurrencies' => array(
+                'MBN' => 'Mobilian Coin',
                 'ONE' => 'BigONE Token',
             ),
         ));
@@ -722,6 +723,7 @@ class bigone extends Exchange {
             'lastTradeTimestamp' => $lastTradeTimestamp,
             'symbol' => $symbol,
             'type' => null,
+            'timeInForce' => null,
             'side' => $side,
             'price' => $price,
             'amount' => $amount,
