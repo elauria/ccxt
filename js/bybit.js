@@ -1102,7 +1102,7 @@ module.exports = class bybit extends Exchange {
         if ((price === undefined || price === 0) && ext_fields !== undefined) {
             price = this.safeFloat (ext_fields, 'trigger_price');
         }
-        const average = this.safeFloat (order, 'average_price');
+        let average = this.safeFloat (order, 'average_price');
 
         const amount = this.safeFloat (order, 'qty');
         let cost = this.safeFloat (order, 'cum_exec_value');
