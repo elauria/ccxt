@@ -1351,7 +1351,7 @@ module.exports = class bybit extends Exchange {
             if (basePrice === undefined) {
                 throw new ArgumentsRequired (this.id + ' createOrder requires both the stop_px and base_price params for a conditional ' + type + ' order');
             } else {
-                method = (marketType === 'linear') ? 'privateLinearPostStopOrderCreate' : 'openapiPostStopOrderCreate';
+                method = (marketType === 'linear') ? 'privateLinearPostStopOrderCreate' : 'privatePostStopOrderCreate';
                 request['stop_px'] = parseFloat (this.priceToPrecision (symbol, stopPx));
                 request['base_price'] = parseFloat (this.priceToPrecision (symbol, basePrice));
                 params = this.omit (params, [ 'stop_px', 'stopPrice', 'base_price' ]);
@@ -1459,10 +1459,10 @@ module.exports = class bybit extends Exchange {
             // 'stop_order_id': id, // only for conditional orders
             // 'p_r_trigger_price': 123.45, // new trigger price also known as stop_px
         };
-        let method = (marketType === 'linear') ? 'privateLinearPostOrderReplace' : 'openapiPostOrderReplace';
+        let method = (marketType === 'linear') ? 'privateLinearPostOrderReplace' : 'privatePostOrderReplace';
         const stopOrderId = this.safeString (params, 'stop_order_id');
         if (stopOrderId !== undefined) {
-            method = (marketType === 'linear') ? 'privateLinearPostStopOrderReplace' : 'openapiPostStopOrderReplace';
+            method = (marketType === 'linear') ? 'privateLinearPostStopOrderReplace' : 'privatePostStopOrderReplace';
             request['stop_order_id'] = stopOrderId;
             params = this.omit (params, [ 'stop_order_id' ]);
         } else {
@@ -1534,7 +1534,7 @@ module.exports = class bybit extends Exchange {
                 request['order_id'] = id;
             }
         } else {
-            method = (marketType === 'linear') ? 'privateLinearPostStopOrderCancel' : 'openapiPostStopOrderCancel';
+            method = (marketType === 'linear') ? 'privateLinearPostStopOrderCancel' : 'privatePostStopOrderCancel';
         }
         const response = await this[method] (this.extend (request, params));
         const result = this.safeValue (response, 'result', {});
@@ -1585,7 +1585,7 @@ module.exports = class bybit extends Exchange {
         const options = this.safeValue (this.options, 'fetchOrders', {});
         const marketTypes = this.safeValue (this.options, 'marketTypes', {});
         const marketType = this.safeString (marketTypes, symbol);
-        let defaultMethod = (marketType === 'linear') ? 'privateLinearGetOrderList' : 'openapiGetOrderList';
+        let defaultMethod = (marketType === 'linear') ? 'privateLinearGetOrderList' : 'privateGetOrderList';
         let query = params;
         if (('stop_order_id' in params) || ('stop_order_status' in params)) {
             let stopOrderStatus = this.safeValue (params, 'stopOrderStatus');
@@ -1596,7 +1596,7 @@ module.exports = class bybit extends Exchange {
                 request['stop_order_status'] = stopOrderStatus;
                 query = this.omit (params, 'stop_order_status');
             }
-            defaultMethod = (marketType === 'linear') ? 'privateLinearGetStopOrderList' : 'openapiGetStopOrderList';
+            defaultMethod = (marketType === 'linear') ? 'privateLinearGetStopOrderList' : 'privateGetStopOrderList';
         }
         const method = this.safeString (options, 'method', defaultMethod);
         const response = await this[method] (this.extend (request, query));
